@@ -98,8 +98,10 @@ The setup installs what it needs with Homebrew. It then builds the x86_64 librar
 When it says **Setup finished**, you can check that VIctory starts:
 
 ```bash
-tools/macos/victory.sh config
+tools/macos/victory.sh --version
 ```
+
+Once `game_dir` in `victory.toml` points at your copy of the game (below), `tools/macos/victory.sh config` checks your paths too.
 
 ## Running the game
 

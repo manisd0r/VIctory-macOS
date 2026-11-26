@@ -118,9 +118,13 @@ fi
 say "building VIctory"
 cargo build --quiet --release -p victory --target x86_64-pc-windows-gnullvm
 [[ -f victory.toml ]] || cp victory.example.toml victory.toml
-tools/macos/victory.sh config > /dev/null 2>&1 || die "VIctory did not start under Wine. Run tools/macos/victory.sh config to see why"
+# --version starts VIctory under Wine without reading victory.toml, whose
+# example game_dir does not exist yet, so a fresh setup does not fail here.
+tools/macos/victory.sh --version > /dev/null 2>&1 || die "VIctory did not start under Wine. Run tools/macos/victory.sh --version to see why"
 
 print
 print -P "%F{green}Setup finished.%f"
-print "Put your own copy of the game in a folder, set game_dir in victory.toml, and start it with:"
+print "Put your own copy of the game in a folder, set game_dir in victory.toml, check it with"
+print "  tools/macos/victory.sh config"
+print "and start it with:"
 print "  tools/macos/victory.sh run --execute <the game's executable>"
