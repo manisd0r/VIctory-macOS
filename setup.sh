@@ -75,7 +75,9 @@ fi
 if [[ -d $WINE_DIR/lib/external/D3DMetal.framework ]]; then
   say "D3DMetal already added"
 else
-  dmg="${GPTK_DMG:-$(ls -t "$HOME"/Downloads/Game_Porting_Toolkit*.dmg 2> /dev/null | head -n 1)}"
+  # (N) keeps zsh quiet when nothing matches, (om) puts the newest first.
+  downloads=("$HOME"/Downloads/Game_Porting_Toolkit*.dmg(Nom))
+  dmg="${GPTK_DMG:-${downloads[1]:-}}"
   if [[ -z $dmg || ! -f $dmg ]]; then
     print
     print -P "%F{yellow}One manual step is left.%f Apple only gives D3DMetal to people who sign in, so you have to download it yourself:"
