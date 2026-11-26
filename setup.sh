@@ -19,6 +19,12 @@ die() { print -P "%F{red}error:%f $*" >&2; exit 1; }
 arch -x86_64 /usr/bin/true 2> /dev/null || die "Rosetta 2 is missing. Install it with: softwareupdate --install-rosetta"
 xcode-select -p > /dev/null 2>&1 || die "the Xcode command line tools are missing. Install them with: xcode-select --install"
 command -v brew > /dev/null || die "Homebrew is missing. Install it from https://brew.sh and run ./setup.sh again"
+# The first run builds Wine and needs about 15 GB. Later runs reuse that build,
+# so only check the space before Wine exists.
+if [[ ! -x $ROOT/target/wine-cx/bin/wine ]]; then
+  free_gb=$(( $(df -Pk "$ROOT" | awk 'NR == 2 { print $4 }') / 1024 / 1024 ))
+  (( free_gb >= 15 )) || die "the first setup needs about 15 GB free and this disk has ${free_gb} GB. Free some space and run ./setup.sh again"
+fi
 
 # 2. Tools from Homebrew.
 BREW="$(brew --prefix)"
@@ -80,11 +86,30 @@ else
   fi
   say "adding D3DMetal from ${dmg:t}"
   outer="$(mktemp -d)"; inner="$(mktemp -d)"
-  hdiutil attach -quiet -nobrowse -readonly -mountpoint "$outer" "$dmg"
-  eval_dmg="$(ls "$outer"/Evaluation*.dmg | head -n 1)"
-  hdiutil attach -quiet -nobrowse -readonly -mountpoint "$inner" "$eval_dmg"
-  ditto "$inner/redist/lib/" "$WINE_DIR/lib/"
-  hdiutil detach -quiet "$inner"; hdiutil detach -quiet "$outer"
+  # Detach both images however this step ends, so a failed run does not leave
+  # the toolkit mounted for the next one.
+  unmount() {
+    hdiutil detach -quiet "$inner" 2> /dev/null || true
+    hdiutil detach -quiet "$outer" 2> /dev/null || true
+    rmdir "$inner" "$outer" 2> /dev/null || true
+  }
+  trap unmount EXIT
+  hdiutil attach -quiet -nobrowse -readonly -mountpoint "$outer" "$dmg" \
+    || die "could not open ${dmg:t}. It may be an incomplete download: delete it, download it again and run ./setup.sh again"
+  eval_dmg=("$outer"/Evaluation*.dmg(N))
+  (( ${#eval_dmg} )) || die "${dmg:t} has no Evaluation .dmg inside. Check that it is Apple's Game Porting Toolkit"
+  hdiutil attach -quiet -nobrowse -readonly -mountpoint "$inner" "$eval_dmg[1]" \
+    || die "could not open ${eval_dmg[1]:t} inside ${dmg:t}"
+  [[ -d $inner/redist/lib/external/D3DMetal.framework ]] \
+    || die "${dmg:t} has no D3DMetal.framework where setup expects it (redist/lib/external). Download the newest Game Porting Toolkit and run ./setup.sh again"
+  # A half-copied framework would make the next run skip this step, so remove
+  # it if the copy fails.
+  ditto "$inner/redist/lib/" "$WINE_DIR/lib/" || {
+    rm -rf "$WINE_DIR/lib/external/D3DMetal.framework"
+    die "copying D3DMetal into Wine failed. Check the free space on this disk and run ./setup.sh again"
+  }
+  unmount
+  trap - EXIT
 fi
 
 # 7. VIctory itself.
